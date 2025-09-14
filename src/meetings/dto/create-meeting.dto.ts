@@ -1,5 +1,6 @@
 export class CreateMeetingDto {
-  topic: string;
-  startTime: Date;
+  title: string;
   meetLink: string;
+  scheduledTime: Date;
+  agenda?: string;
 }

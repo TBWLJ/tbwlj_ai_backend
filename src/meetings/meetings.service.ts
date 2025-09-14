@@ -1,34 +1,31 @@
+// meetings.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { CreateMeetingDto } from './dto/create-meeting.dto';
-import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { Meeting, MeetingDocument } from './schemas/meeting.schema';
+import { CreateMeetingDto } from './dto/create-meeting.dto';
 
 @Injectable()
 export class MeetingsService {
   constructor(
-    @InjectModel(Meeting.name) private meetingModel: Model<MeetingDocument>,
+    @InjectModel(Meeting.name)
+    private meetingModel: Model<MeetingDocument>,
   ) {}
 
-  async create(createMeetingDto: CreateMeetingDto): Promise<Meeting> {
+  async create(createMeetingDto: CreateMeetingDto): Promise<MeetingDocument> {
     const meeting = new this.meetingModel(createMeetingDto);
     return meeting.save();
   }
 
-  async findAll(): Promise<Meeting[]> {
-    return this.meetingModel.find().exec();
+  async findUpcoming(): Promise<MeetingDocument[]> {
+    return this.meetingModel.find({ scheduledTime: { $gte: new Date() } });
   }
 
-  async findOne(id: string): Promise<Meeting | null> {
-    return this.meetingModel.findById(id).exec();
+  async findAll(): Promise<MeetingDocument[]> {
+    return this.meetingModel.find();
   }
 
-  async update(id: string, updateDto: UpdateMeetingDto): Promise<Meeting | null> {
-    return this.meetingModel.findByIdAndUpdate(id, updateDto, { new: true }).exec();
-  }
-
-  async delete(id: string): Promise<Meeting | null> {
-    return this.meetingModel.findByIdAndDelete(id).exec();
+  async markBotStarted(id: string): Promise<void> {
+    await this.meetingModel.findByIdAndUpdate(id, { botStarted: true });
   }
 }

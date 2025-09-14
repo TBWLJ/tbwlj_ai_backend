@@ -1,53 +1,87 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import * as puppeteer from 'puppeteer';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class BotService {
-  private logger = new Logger(BotService.name);
+  async startBot(meetingUrl: string, options = { headless: true, saveCaptions: true }) {
+    const { headless, saveCaptions } = options;
 
-  async joinMeeting(meetingUrl: string, botName = 'Taiwo Ayomide AI'): Promise<void> {
+    const browser = await puppeteer.launch({
+      headless,
+      args: [
+        '--use-fake-ui-for-media-stream',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+      ],
+    });
+
+    const page = await browser.newPage();
+
     try {
-      const browser = await puppeteer.launch({
-        headless: false, // You can change to true if you don’t need a GUI
-        args: [
-          '--use-fake-ui-for-media-stream', // Automatically grant mic/cam
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-        ],
-      });
-
-      const page = await browser.newPage();
       await page.goto(meetingUrl, { waitUntil: 'networkidle2' });
 
-      this.logger.log(`Navigated to ${meetingUrl}`);
+      await page.waitForTimeout(3000);
 
-      // Wait for the join button
-      await page.waitForSelector('input[type="text"]', { timeout: 10000 });
-      await page.type('input[type="text"]', botName); // Type name
+      // Turn off camera/mic
+      await page.keyboard.press('Tab');
       await page.keyboard.press('Enter');
+      await page.waitForTimeout(1000);
 
-      // Join the meeting
-      await page.waitForTimeout(10000);
+      // Turn on captions
+      const captionsButton = await page.$('div[aria-label*="Turn on captions"]');
+      if (captionsButton) {
+        await captionsButton.click();
+      }
 
-      // Periodically send message
-      const sendMessage = async (msg: string) => {
-        try {
-          await page.click('[aria-label="Chat with everyone"]');
-          await page.waitForSelector('textarea');
-          await page.type('textarea', msg);
-          await page.keyboard.press('Enter');
-          this.logger.log(`Sent message: ${msg}`);
-        } catch (e) {
-          this.logger.error('Failed to send message', e);
-        }
-      };
+      // Click join
+      const joinButton = await page.$('button[jsname="Qx7uuf"]');
+      if (joinButton) {
+        await joinButton.click();
+      } else {
+        throw new Error('Join button not found');
+      }
 
-      setInterval(() => {
-        sendMessage("👋 Hi, I'm Taiwo Ayomide AI. I'm helping Ayomide take notes of this meeting.");
-      }, 5 * 60 * 1000); // every 5 minutes
+      console.log('✅ Joined the meeting.');
 
-    } catch (err) {
-      this.logger.error('Failed to join meeting', err);
+      if (saveCaptions) {
+        const captions = [];
+        const captionsPath = path.join(__dirname, 'captions.txt');
+
+        await page.exposeFunction('onNewCaption', (text) => {
+          captions.push(text);
+          fs.appendFileSync(captionsPath, text + '\n');
+        });
+
+        await page.evaluate(() => {
+          const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+              if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                mutation.addedNodes.forEach((node) => {
+                  const text = node.innerText;
+                  if (text) {
+                    window.onNewCaption(text);
+                  }
+                });
+              }
+            });
+          });
+
+          const captionsContainer = document.querySelector('[class*="iTTPOb"]'); // Might need tweaking
+          if (captionsContainer) {
+            observer.observe(captionsContainer, { childList: true, subtree: true });
+          }
+        });
+
+        console.log('📝 Capturing captions...');
+      }
+
+    } catch (error) {
+      console.error('❌ Error in bot module:', error.message);
+    } finally {
+      // Leave the meeting after a duration or condition (you can add later)
+      // await browser.close();
     }
   }
 }

@@ -8,8 +8,8 @@ import { Meeting, MeetingSchema } from './schemas/meeting.schema';
   imports: [
     MongooseModule.forFeature([{ name: Meeting.name, schema: MeetingSchema }]),
   ],
-  controllers: [MeetingsController],
   providers: [MeetingsService],
+  controllers: [MeetingsController],
   exports: [MeetingsService],
 })
 export class MeetingsModule {}

@@ -5,9 +5,8 @@ import { BotService } from './bot.service';
 export class BotController {
   constructor(private readonly botService: BotService) {}
 
-  @Post('join')
-  async joinMeeting(@Body() body: { url: string, meetingId: string }) {
-    await this.botService.joinMeeting(body.url, body.meetingId);
-    return { message: 'Bot joined the meeting' };
+  @Post('start')
+  async startBot(@Body() body: { meetingUrl: string }) {
+    return this.botService.startBot(body.meetingUrl);
   }
 }

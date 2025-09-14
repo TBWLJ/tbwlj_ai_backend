@@ -1,9 +1,12 @@
-const puppeteer = require('puppeteer');
-const fs = require('fs');
-const path = require('path');
+import puppeteer from 'puppeteer';
+import fs from 'fs';
+import path from 'path';
 
-async function startBot(meetingUrl, options = {}) {
-  const { headless = true, saveCaptions = true } = options;
+export async function startBot(meetingUrl: string, options = {}) {
+  const { headless = true, saveCaptions = true } = options as {
+    headless?: boolean;
+    saveCaptions?: boolean;
+  };
 
   const browser = await puppeteer.launch({
     headless,
@@ -17,24 +20,18 @@ async function startBot(meetingUrl, options = {}) {
   const page = await browser.newPage();
 
   try {
-    // Go to Google Meet
     await page.goto(meetingUrl, { waitUntil: 'networkidle2' });
-
-    // Accept permissions (if needed)
     await page.waitForTimeout(3000);
 
-    // Click to turn off camera/mic (optional)
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(1000);
 
-    // Enable Captions
     const captionsButton = await page.$('div[aria-label*="Turn on captions"]');
     if (captionsButton) {
       await captionsButton.click();
     }
 
-    // Join the meeting
     const joinButton = await page.$('button[jsname="Qx7uuf"]');
     if (joinButton) {
       await joinButton.click();
@@ -45,10 +42,10 @@ async function startBot(meetingUrl, options = {}) {
     console.log("✅ Joined the meeting.");
 
     if (saveCaptions) {
-      const captions = [];
+      const captions: string[] = [];
       const captionsPath = path.join(__dirname, 'captions.txt');
 
-      await page.exposeFunction('onNewCaption', (text) => {
+      await page.exposeFunction('onNewCaption', (text: string) => {
         captions.push(text);
         fs.appendFileSync(captionsPath, text + '\n');
       });
@@ -56,12 +53,9 @@ async function startBot(meetingUrl, options = {}) {
       await page.evaluate(() => {
         const observer = new MutationObserver((mutations) => {
           mutations.forEach((mutation) => {
-            if (
-              mutation.type === 'childList' &&
-              mutation.addedNodes.length > 0
-            ) {
+            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
               mutation.addedNodes.forEach((node) => {
-                const text = node.innerText;
+                const text = (node as HTMLElement).innerText;
                 if (text) {
                   window.onNewCaption(text);
                 }
@@ -70,7 +64,7 @@ async function startBot(meetingUrl, options = {}) {
           });
         });
 
-        const captionsContainer = document.querySelector('[class*="iTTPOb"]'); // Might vary, needs testing
+        const captionsContainer = document.querySelector('[class*="iTTPOb"]');
         if (captionsContainer) {
           observer.observe(captionsContainer, { childList: true, subtree: true });
         }
@@ -84,5 +78,3 @@ async function startBot(meetingUrl, options = {}) {
     await browser.close();
   }
 }
-
-module.exports = { startBot };

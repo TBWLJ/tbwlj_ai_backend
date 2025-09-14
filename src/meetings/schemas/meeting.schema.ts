@@ -3,22 +3,22 @@ import { Document } from 'mongoose';
 
 export type MeetingDocument = Meeting & Document;
 
-@Schema({ timestamps: true })
+@Schema()
 export class Meeting {
   @Prop({ required: true })
-  topic: string;
+  title: string;
 
   @Prop({ required: true })
-  startTime: Date;
-
-  @Prop()
-  endTime?: Date;
-
-  @Prop()
   meetLink: string;
 
   @Prop()
-  notes?: string;
+  agenda?: string;
+
+  @Prop({ required: true })
+  scheduledTime: Date;
+
+  @Prop({ default: false })
+  botStarted: boolean;
 }
 
 export const MeetingSchema = SchemaFactory.createForClass(Meeting);
